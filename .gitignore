@@ -1,3 +1,4 @@
 /target
 .direnv
 *.code-workspace
+/.vscode
