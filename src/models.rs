@@ -3,7 +3,11 @@ use {
     cut_optimizer_2d::{CutPiece, Optimizer, PatternDirection, Solution, StockPiece},
     pdf_canvas::{graphicsstate::Color, BuiltinFont, Pdf},
     serde::{Deserialize, Serialize},
-    std::{env, fs},
+    std::{
+        env::{self},
+        fs,
+        path::Path,
+    },
     uom::si::{
         f32::Length,
         length::{foot, inch, millimeter, point_computer},
@@ -230,10 +234,16 @@ pub struct Model {
 
 impl Model {
     pub fn default() -> Self {
-        if let Ok(value) = fs::read(file()) {
-            if let Ok(value) = rmp_serde::from_slice::<Self>(&value) {
-                return value;
-            }
+        match file() {
+            Some(config_file) => {
+                let path = Path::new(&config_file);
+                if let Ok(value) = fs::read(path) {
+                    if let Ok(value) = rmp_serde::from_slice::<Self>(&value) {
+                        return value;
+                    }
+                }
+            },
+            None => panic!("No filename retrievable!"),
         };
         Self {
             unit: 0,
@@ -256,7 +266,13 @@ impl Model {
         }
     }
     pub fn save(&self) {
-        fs::write(file(), rmp_serde::to_vec(&self).unwrap()).unwrap();
+        match file() {
+            Some(config_file) => {
+                let path = Path::new(&config_file);
+                fs::write(path, rmp_serde::to_vec(&self).unwrap()).unwrap();
+            },
+            None => panic!("No filename retrievable!"),
+        }
     }
     pub fn pieces(&self) -> &Vec<Piece> {
         &self.pieces
@@ -379,6 +395,17 @@ impl Model {
     }
 }
 
-fn file() -> String {
-    env::var("HOME").unwrap() + "/.config/" + crate::NAME
+fn file() -> Option<String> {
+    match env::home_dir() {
+        Some(path) => match path
+            .join(".config")
+            .join(crate::NAME)
+            .as_path()
+            .to_str()
+        {
+            Some(config_file) => Some(String::from(config_file)),
+            _ => None,
+        },
+        _ => None,
+    }
 }
