@@ -1,7 +1,7 @@
 mod models;
 use {
     cascade::cascade,
-    comfy_table::{Table, modifiers, presets},
+    comfy_table::{modifiers, presets, Table},
     fltk::{
         app,
         button::Button,
