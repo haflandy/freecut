@@ -5,8 +5,9 @@ use {
     serde::{Deserialize, Serialize},
     std::{
         env::{self},
-        fs,
-        path::Path,
+        fs::OpenOptions,
+        io::{BufReader, BufWriter},
+        path::PathBuf,
     },
     uom::si::{
         f32::Length,
@@ -230,27 +231,29 @@ pub struct Model {
     layout: i32,
     width: f32,
     pieces: Vec<Piece>,
+    base_dir: PathBuf,
 }
 
 impl Model {
     pub fn default() -> Self {
-        match file() {
-            Some(config_file) => {
-                let path = Path::new(&config_file);
-                if let Ok(value) = fs::read(path) {
-                    if let Ok(value) = rmp_serde::from_slice::<Self>(&value) {
-                        return value;
-                    }
-                }
-            },
-            None => panic!("No filename retrievable!"),
-        };
-        Self {
+        let bs = base_dir();
+
+        let mut mdl = Self {
             unit: 0,
             layout: 0,
             width: 3f32,
             pieces: Vec::from([Piece::default()]),
-        }
+            base_dir: bs,
+        };
+
+        let f = OpenOptions::new().read(true).open(mdl.conf_file());
+        if let Ok(f) = f {
+            let reader = BufReader::new(f);
+            if let Ok(model) = serde_json::from_reader(reader) {
+                mdl = model;
+            };
+        };
+        mdl
     }
     pub fn allowed_range(&self, value: &f32) -> bool {
         const MIN: f32 = 1f32;
@@ -265,14 +268,25 @@ impl Model {
             _ => (MIN..=100000f32).contains(value),
         }
     }
+    fn conf_file(&self) -> PathBuf {
+        let fname = crate::NAME;
+        self.base_dir.join(".config").join(format!("{fname}.json"))
+    }
     pub fn save(&self) {
-        match file() {
-            Some(config_file) => {
-                let path = Path::new(&config_file);
-                fs::write(path, rmp_serde::to_vec(&self).unwrap()).unwrap();
-            },
-            None => panic!("No filename retrievable!"),
-        }
+        let f = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(self.conf_file());
+        match f {
+            Ok(f) => {
+                let writer = BufWriter::new(f);
+                let _ = serde_json::to_writer_pretty(writer, &self);
+                //writer.flush();
+            }
+            Err(_) => panic!("File cannot be created!"),
+        };
+
+        //fs::write(pth, rmp_serde::to_vec(&self).unwrap()).unwrap();
     }
     pub fn pieces(&self) -> &Vec<Piece> {
         &self.pieces
@@ -395,17 +409,9 @@ impl Model {
     }
 }
 
-fn file() -> Option<String> {
+fn base_dir() -> PathBuf {
     match env::home_dir() {
-        Some(path) => match path
-            .join(".config")
-            .join(crate::NAME)
-            .as_path()
-            .to_str()
-        {
-            Some(config_file) => Some(String::from(config_file)),
-            _ => None,
-        },
-        _ => None,
+        Some(path) => path,
+        _ => panic!("No home directory retrievable!"),
     }
 }

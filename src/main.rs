@@ -1,7 +1,7 @@
 mod models;
 use {
     cascade::cascade,
-    comfy_table::{modifiers, presets, Table},
+    comfy_table::{Table, modifiers, presets},
     fltk::{
         app,
         button::Button,
@@ -28,7 +28,9 @@ const WIDTH: i32 = HEIGHT * 3;
 fn main() -> Result<(), FltkError> {
     let app = app::App::default();
     cascade!(
-        Window::default().with_size(360, 640).center_screen();
+        Window::default()
+            .with_size(360, 640)
+            .center_screen();
         ..set_label(NAME);
         ..set_xclass("freecut");
         ..size_range(360, 640, 0, 0);
